@@ -1,22 +1,34 @@
 import jwt from "jsonwebtoken";
 import User from "../models/userModel.js"; // Assuming you have a Vendor model
 
-
 export const verifyUser = async (req, res, next) => {
   try {
-    const token = req.headers.authorization?.split(" ")[1]; // Extract Bearer token
-    if (!token) return res.status(401).send({ message: "Access Denied" });
+    // Extract Bearer token
+    const token = req.headers.authorization?.split(" ")[1];
+    if (!token) {
+      return res
+        .status(401)
+        .json({ message: "Access Denied: No token provided" });
+    }
 
+    // Decode the token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Find the user by ID
     const user = await User.findById(decoded.id);
+    if (!user) {
+      return res
+        .status(403)
+        .json({ message: "User not found or invalid token" });
+    }
 
-    if (!user) return res.status(403).send({ message: "Not a valid vendor" });
-
+    // Attach token and user to the request
     req.token = token;
-    req.user = user; // Attach user data to the request
+    req.user = user;
     next();
   } catch (error) {
-    res.status(401).json({ message: "Invalid Token" });
+    console.error("Auth Error:", error.message);
+    res.status(401).json({ message: "Invalid or expired token" });
   }
 };
 
@@ -42,11 +54,17 @@ export const verifyToken = async (req, res, next) => {
   }
 };
 
-export const requiredRole = (role) => {
+export const requiredRole = (...roles) => {
   return (req, res, next) => {
-    if (req.user.role !== role) {
-      return res.status(403).send({ message: 'Access denied' });
+    const userRole = req.user?.role;
+
+    if (!roles.includes(userRole)) {
+      return res.status(403).send({
+        success: false,
+        message: "Access denied. Insufficient permissions.",
+      });
     }
+
     next();
   };
 };

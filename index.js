@@ -5,7 +5,8 @@ import morgan from "morgan";
 import cors from "cors";
 import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
-import authRoute from "./routes/routes.js"
+import routes from "./routes/route.js";
+
 
 
 dotenv.config();
@@ -21,7 +22,7 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-app.use("/api/tesa/auth", authRoute);
+app.use("/api/tesa", routes);
 
 
 const port = process.env.PORT || 3008

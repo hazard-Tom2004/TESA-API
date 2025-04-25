@@ -1,10 +1,9 @@
-import mongoose from "mongoose";
+import mongoose from "mongoose"
 
-const userSchema = new mongoose.Schema(
+const courseSchema = new mongoose.Schema(
   {
-    fullName: { type: String, required: true },
-    email: { type: String, required: true, unique: true },
-    avatar: { type: String, default: "" },
+    courseCode: { type: String, required: true, unique: true },
+    courseName: { type: String, required: true },
     department: {
       type: [String],
       enum: [
@@ -26,15 +25,13 @@ const userSchema = new mongoose.Schema(
       enum: ["100", "200", "300", "400", "500"],
       required: true,
     },
-    password: { type: String, required: true },
-    verified: { type: Boolean, default: false }, // User is unverified by default
-    role: {
-      type: String,
-      enum: ["student", "admin", "super_admin"],
-      default: "student",
-    },
+    units: { type: [Number], enum: [1, 2, 3, 4, 5], required: true },
+    semester: { type: String, enum: ["first", "second"], required: true },
+    shared: { type: Boolean, default: true },
+    material: [{ type: mongoose.Schema.Types.ObjectId, ref: "Material" }],
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   },
   { timestamps: true }
 );
 
-export default mongoose.model("User", userSchema);
+export default mongoose.model("Course", courseSchema);

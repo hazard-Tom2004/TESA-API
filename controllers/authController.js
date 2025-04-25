@@ -1,8 +1,8 @@
 import User from "../models/userModel.js";
 import Token from "../models/tokenModel.js";
-const { hashFn, comparePasswords, sendEmail } = utils;
+import { hashFn, comparePasswords, sendEmail } from "../utils/utils.js";
 // import cloudinary from "../config/cloudinary.js";
-import utils from "../utils/utils.js";
+// import utils from "../utils/utils.js";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import crypto from "crypto";
@@ -66,8 +66,6 @@ export const registerUser = async (req, res) => {
       data: {
         fullName: user.fullName,
         email: user.email,
-        department: user.department,
-        level: user.level,
       },
     });
   } catch (error) {
@@ -300,61 +298,7 @@ export const userLogin = async (req, res) => {
   }
 };
 
-export const createAdmin = async (req, res) => {
-  try {
-    const { userId } = req.body;
-    const user = await User.findById(userId);
-    if (!user)
-      return res
-        .status(404)
-        .send({ success: false, message: "User not found" });
 
-    if (user.role === "admin") {
-      return res
-        .status(400)
-        .send({ success: false, message: "User is already an admin" });
-    }
-
-    user.role = "admin";
-    await user.save();
-
-    res
-      .status(200)
-      .send({ success: true, message: "User promoted to admin", User });
-  } catch (error) {
-    res.status(500).send({ success: false, message: "server error!", error });
-  }
-};
-
-export const revokeAdmin = async (req, res) => {
-  const { userId } = req.body;
-
-  try {
-    const user = await User.findById(userId);
-
-    if (!user)
-      return res
-        .status(404)
-        .send({ success: false, message: "User not found" });
-
-    if (user.role !== "admin") {
-      return res
-        .status(400)
-        .send({ success: false, message: "User is not an admin" });
-    }
-
-    user.role = "student";
-    await user.save();
-
-    return res
-      .status(200)
-      .send({ success: true, message: "Admin privileges revoked", user });
-  } catch (err) {
-    return res
-      .status(500)
-      .send({ success: false, message: "Server error", error: err.message });
-  }
-};
 
 export const changeUserPassword = async (req, res) => {
   try {

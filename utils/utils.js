@@ -1,14 +1,14 @@
 import bcrypt from 'bcryptjs';
 import sgMail from '@sendgrid/mail';
 
-const hashFn = async (value) => {
+export const hashFn = async (value) => {
     const salt = await bcrypt.genSalt(10);
     const hash = bcrypt.hash(value, salt);
   
     return hash;
   };
 
-  const comparePasswords = async (password, hashedPassword) => {
+  export const comparePasswords = async (password, hashedPassword) => {
     const isMatch = await bcrypt.compare(password, hashedPassword);
     return isMatch;
   };
@@ -26,7 +26,7 @@ const hashFn = async (value) => {
    * @param {string} text - Plain text content of the email
    * @returns {Promise<void>}
   */
-const sendEmail = async (to, subject, htmlContent) => {
+export const sendEmail = async (to, subject, htmlContent) => {
   try {
     const msg = {
       to,
@@ -43,4 +43,4 @@ const sendEmail = async (to, subject, htmlContent) => {
 }
 };
 
-export default { hashFn, comparePasswords, sendEmail };
+// export default { hashFn, comparePasswords, sendEmail };
