@@ -1,4 +1,4 @@
-import mongoose from "mongoose"
+import mongoose from "mongoose";
 
 const courseSchema = new mongoose.Schema(
   {
@@ -26,10 +26,24 @@ const courseSchema = new mongoose.Schema(
       required: true,
     },
     units: { type: [Number], enum: [1, 2, 3, 4, 5], required: true },
-    semester: { type: String, enum: ["first", "second"], required: true },
+
+    semester: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "CurrentSemester", // Reference to your Semester model
+      required: true,
+    },
+    session: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "CurrentSession", // Reference to your Session model
+      required: true,
+    },
     shared: { type: Boolean, default: true },
     material: [{ type: mongoose.Schema.Types.ObjectId, ref: "Material" }],
-    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
   },
   { timestamps: true }
 );
