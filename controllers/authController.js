@@ -2,7 +2,7 @@ import User from "../models/userModel.js";
 import Token from "../models/tokenModel.js";
 import { hashFn, comparePasswords, sendEmail } from "../utils/utils.js";
 // import cloudinary from "../config/cloudinary.js";
-// import utils from "../utils/utils.js";
+
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import crypto from "crypto";
@@ -192,14 +192,13 @@ export const resendVerificationEmail = async (req, res) => {
       "Resend Email Verification",
       emailContent
     );
-    // if (!emailResponse.success) {
-    //   return res.status(500).send({
-    //     success: false,
-    //     message: "Failed to send verification email.",
-    //   });
-    // }
+
     if (!emailResponse.success) {
       console.error("Email failed:", emailResponse.message);
+      return res.status(500).send({
+        success: false,
+        message: "Failed to send verification email.",
+      });
     }
 
     res.status(200).send({
@@ -214,22 +213,40 @@ export const resendVerificationEmail = async (req, res) => {
   }
 };
 
-export const userLogin = async (req, res) => {
-  const { email, password } = req.body;
-
+const loginByRole = async (req, res, expectedRole) => {
   try {
-    //ensuring all fields are required
-    if (!email || !password)
+    const { email, password } = req.body;
+
+    if (!email || !password) {
       return res
         .status(400)
-        .send({ success: false, message: "All fields required!" });
+        .send({ success: false, message: "Email and password are required." });
+    }
 
-    //ensuring only registered user can login
     const user = await User.findOne({ email });
-    console.log(email);
-    // if (!user)
+    //  To compare passwords
+    
+    if (!user) {
+      return res.status(400).send({
+        success: false,
+        message: `user with (${email}) does not exist!`,
+      });
+    }
+    const getPassword = user.password;
 
-    //login process
+    if (user.role !== expectedRole) {
+      return res.status(403).send({
+        success: false,
+        message: `Unauthorized: This is the ${expectedRole} login endpoint.`,
+      });
+    }
+    const correctPassword = await comparePasswords(password, getPassword);
+    if (!correctPassword) {
+      return res.status(400).send({
+        success: false,
+        message: `Incorrect credentials`,
+      });
+    }
     if (user) {
       // Generate JWT token
       const token = jwt.sign(
@@ -240,7 +257,7 @@ export const userLogin = async (req, res) => {
         }
       );
 
-      // res.send({ token });
+      // Generate refresh_token
       const refresh_token = jwt.sign(
         { id: user._id, email: user.email, role: user.role },
         process.env.JWT_REFRESH_SECRET,
@@ -249,6 +266,7 @@ export const userLogin = async (req, res) => {
         }
       );
 
+      // Store refresh_token
       const storeRefreshToken = async (userId, refreshToken) => {
         await Token.create({
           userId,
@@ -257,48 +275,34 @@ export const userLogin = async (req, res) => {
         });
       };
 
-      //To compare passwords
-      const getPassword = user.password;
-      console.log("Passwords must match,", password, getPassword);
-      if (await comparePasswords(password, getPassword)) {
-        console.log(
-          "This is the user token",
-          "token:",
-          token,
-          "refresh_token:",
-          refresh_token
-        );
-        // console.log(mongoose.Schema.Types.ObjectId);
+      try {
         await storeRefreshToken(user._id, refresh_token);
-        return res.status(200).send({
-          success: true,
-          message: "User logged in successfully",
-          data: {
-            username: user.username,
-            email: user.email,
-            token,
-            refresh_token,
-          },
-        });
-      } else {
-        return res.status(400).send({
-          success: false,
-          message: "Incorrect credentials!",
-        });
+      } catch (error) {
+        console.error("Failed to store refresh token:", error);
       }
-    } else {
-      return res.status(400).send({
-        success: false,
-        message: `user with (${email}) does not exist!`,
+
+      return res.status(200).send({
+        success: true,
+        message: `${expectedRole} logged in successfully`,
+        data: {
+          username: user.username,
+          email: user.email,
+          role: user.role,
+          token,
+          refresh_token,
+        },
       });
     }
-  } catch (error) {
-    res.status(500).send({ success: false, message: "Server error!", error });
-    console.log(error);
+  } catch (err) {
+    return res.status(500).send({ success: false, message: err.message });
   }
 };
 
-
+// Export each login method
+export const loginStudent = (req, res) => loginByRole(req, res, "student");
+export const loginAdmin = (req, res) => loginByRole(req, res, "admin");
+export const loginSuperAdmin = (req, res) =>
+  loginByRole(req, res, "super_admin");
 
 export const changeUserPassword = async (req, res) => {
   try {
@@ -358,7 +362,7 @@ export const changeUserPassword = async (req, res) => {
 export const userLogout = async (req, res) => {
   try {
     const { refreshAccess } = req.body;
-    console.log(refreshAccess)
+    console.log(refreshAccess);
 
     if (!refreshAccess)
       return res
@@ -529,12 +533,13 @@ export const userResetPassword = async (req, res) => {
   }
 };
 
-
 export const refreshTokenHandler = async (req, res) => {
   const { refreshToken } = req.body;
 
   if (!refreshToken) {
-    return res.status(401).send({ success: false, message: 'Refresh token required' });
+    return res
+      .status(401)
+      .send({ success: false, message: "Refresh token required" });
   }
 
   try {
@@ -542,30 +547,38 @@ export const refreshTokenHandler = async (req, res) => {
     const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
 
     // 2. Check if token exists in DB (optional but safer)
-    const tokenDb = await Token.findOne({ userId: decoded.id, token: refreshToken, type: 'refreshAccess' });
+    const tokenDb = await Token.findOne({
+      userId: decoded.id,
+      token: refreshToken,
+      type: "refreshAccess",
+    });
 
     if (!tokenDb) {
-      return res.status(403).send({ success: false, message: 'Invalid or expired refresh token' });
+      return res
+        .status(403)
+        .send({ success: false, message: "Invalid or expired refresh token" });
     }
 
     // 3. Fetch user to generate new access token
     const user = await User.findById(decoded.id);
     if (!user) {
-      return res.status(404).send({ success: false, message: 'User not found' });
+      return res
+        .status(404)
+        .send({ success: false, message: "User not found" });
     }
 
     // 4. Generate new access token
     const newAccessToken = jwt.sign(
       { id: user._id, email: user.email, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: '1h' }
+      { expiresIn: "1h" }
     );
 
     // Optional: rotate refresh token for added security
     const newRefreshToken = jwt.sign(
       { id: user._id },
       process.env.JWT_REFRESH_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: "7d" }
     );
 
     // Update in DB
@@ -580,8 +593,9 @@ export const refreshTokenHandler = async (req, res) => {
       refreshToken: newRefreshToken, // optional
     });
   } catch (err) {
-    res.status(403).send({ success: false, message: 'Invalid token', error: err.message });
-    console.log(err)
+    res
+      .status(403)
+      .send({ success: false, message: "Invalid token", error: err.message });
+    console.log(err);
   }
 };
-

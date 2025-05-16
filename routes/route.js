@@ -3,7 +3,9 @@ import {
   registerUser,
   verifyEmail,
   resendVerificationEmail,
-  userLogin,
+  loginStudent,
+  loginAdmin,
+  loginSuperAdmin,
   changeUserPassword,
   userLogout,
   userRequestReset,
@@ -27,6 +29,7 @@ import {
   updateCourse,
   deleteCourse,
   syncCourse,
+  getUserCourses
 } from "../controllers/courseController.js";
 import {
   uploadMaterial,
@@ -35,10 +38,23 @@ import {
   getMaterialsByType,
   searchMaterials,
 } from "../controllers/materialController.js";
-import { createSuggestion, getPendingSuggestions, approveSuggestion, rejectSuggestion, getSuggestionStats } from "../controllers/suggestionController.js";
-import { getFileById, getFileType, streamVideo, previewDocument } from "../controllers/fileController.js"
+import {
+  createSuggestion,
+  getPendingSuggestions,
+  approveSuggestion,
+  rejectSuggestion,
+  getSuggestionStats,
+} from "../controllers/suggestionController.js";
+import {
+  getFileById,
+  getFileType,
+  streamVideo,
+  previewDocument,
+} from "../controllers/fileController.js";
 import rateLimit from "../middlewares/rateLimit.js";
 import { verifyUser, verifyToken, requiredRole } from "../middlewares/auth.js";
+import { setCurrentSession } from "../controllers/sessionController.js";
+import { setCurrentSemester } from "../controllers/semesterController.js";
 import upload from "../middlewares/multer.js";
 const router = express.Router();
 
@@ -50,7 +66,9 @@ router.post(
   rateLimit,
   resendVerificationEmail
 );
-router.post("/auth/user-login", userLogin);
+router.post("/auth/login-student", loginStudent);
+router.post("/auth/login-admin", loginAdmin);
+router.post("/auth/login-super-admin", loginSuperAdmin);
 router.put("/auth/change-password-user", verifyToken, changeUserPassword);
 router.post("/auth/user-logout", userLogout);
 router.post("/auth/request-reset", userRequestReset);
@@ -122,6 +140,7 @@ router.put(
   requiredRole("admin", "super_admin"),
   syncCourse
 );
+router.get("/get-user-courses", verifyUser, getUserCourses);
 
 //Course Upload route
 router.post(
@@ -146,10 +165,25 @@ router.post(
   batchUploadMaterial
 );
 
-router.post("/create-suggestion", verifyUser, upload.single("file"), createSuggestion);
+router.post(
+  "/create-suggestion",
+  verifyUser,
+  upload.single("file"),
+  createSuggestion
+);
 router.get("/get-pending-suggestion", verifyUser, getPendingSuggestions);
-router.put("/approve-suggestion", verifyUser, requiredRole("admin", "super_admin"), approveSuggestion);
-router.put("/reject-suggestion", verifyUser, requiredRole("admin", "super_admin"), rejectSuggestion);
+router.put(
+  "/approve-suggestion",
+  verifyUser,
+  requiredRole("admin", "super_admin"),
+  approveSuggestion
+);
+router.put(
+  "/reject-suggestion",
+  verifyUser,
+  requiredRole("admin", "super_admin"),
+  rejectSuggestion
+);
 router.get("/get-suggestion-stats", verifyUser, getSuggestionStats);
 
 //File retrieval and streaming
@@ -158,6 +192,10 @@ router.get("/get-material-type/:id", verifyUser, getFileType);
 router.get("stream-video/:id", verifyUser, streamVideo);
 router.get("/preview-document/:id", verifyUser, previewDocument);
 
+//Set Session
+router.post("/set-current-session", verifyUser, requiredRole("super_admin"), setCurrentSession);
 
+//set semester
+router.post("/set-current-semester", verifyUser, requiredRole("admin", "super_admin"), setCurrentSemester);
 // module.exports = router
 export default router;
